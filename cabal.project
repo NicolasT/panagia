@@ -1,0 +1,6 @@
+Packages:
+  .
+
+-- For non-Hackage builds, enable `-Werror` and friends
+Package panagia
+  Flags: +werror

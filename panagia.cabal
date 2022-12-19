@@ -1,0 +1,88 @@
+Cabal-Version:      3.0
+Build-Type:         Simple
+
+Name:               panagia
+Version:            0.0.1.0
+Synopsis:           An island close to Paxos
+Description:
+  Experiments to build a verified Paxos implementation in Haskell.
+
+Homepage:           https://github.com/NicolasT/panagia
+Bug-Reports:        https://github.com/NicolasT/panagia/issues
+License:            Apache-2.0
+License-File:       LICENSE
+Author:             Nicolas Trangez
+Maintainer:         ikke@nicolast.be
+Copyright:          (c) 2022, Nicolas Trangez
+
+Category:           Network
+Stability:          Experimental
+
+Extra-Doc-Files:
+  CHANGELOG.md
+
+Tested-With:
+  GHC ==8.10.5
+
+Source-Repository head
+  Type:             git
+  Location:         https://github.com/NicolasT/panagia.git
+  Branch:           main
+
+Flag werror
+  Description:      Turn compiler warnings into errors.
+  Default:          False
+  Manual:           True
+
+Common warnings
+  Ghc-Options:
+    -Wall
+    -Wcompat
+    -Wcpp-undef
+    -Widentities
+    -Wincomplete-patterns
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wmissing-export-lists
+    -Wmissing-home-modules
+    -Worphans
+    -Wpartial-fields
+    -Wredundant-constraints
+
+  if flag(werror)
+    Ghc-Options:
+      -Werror
+      -optc=-Werror
+    Cc-Options:
+      -Werror
+
+Library
+  import:           warnings
+  Hs-Source-Dirs:   src
+  Default-Language: Haskell2010
+  Exposed-Modules:
+    MyLib,
+  Other-Modules:
+  Build-Depends:
+    base ^>=4.14.2.0,
+
+Executable panagia
+  import:           warnings
+  Hs-Source-Dirs:   app
+  Default-Language: Haskell2010
+  Main-Is:          Main.hs
+  Other-Modules:
+  Build-depends:
+    base ^>=4.14.2.0,
+    panagia,
+
+Test-Suite panagia-test
+  import:           warnings
+  Type:             exitcode-stdio-1.0
+  Hs-Source-Dirs:   test
+  Default-Language: Haskell2010
+  Main-Is:          Main.hs
+  Other-Modules:
+  Build-Depends:
+    base ^>=4.14.2.0,
+    panagia,
