@@ -29,6 +29,11 @@ Source-Repository head
   Location:         https://github.com/NicolasT/panagia.git
   Branch:           main
 
+Flag werror
+  Description:      Turn compiler warnings into errors.
+  Default:          False
+  Manual:           True
+
 Common warnings
   Ghc-Options:
     -Wall
@@ -43,6 +48,13 @@ Common warnings
     -Worphans
     -Wpartial-fields
     -Wredundant-constraints
+
+  if flag(werror)
+    Ghc-Options:
+      -Werror
+      -optc=-Werror
+    Cc-Options:
+      -Werror
 
 Library
   import:           warnings
