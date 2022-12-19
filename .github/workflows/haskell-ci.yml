@@ -154,6 +154,8 @@ jobs:
           echo "package panagia" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
+          package panagia
+            flags: +werror
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(panagia)$/; }' >> cabal.project.local
           cat cabal.project
