@@ -119,11 +119,9 @@ class
   MonadPaxos (m :: Role -> Type -> Type)
   where
   data Message m :: MessageType -> Type
-  data Ballot m :: Type
+  type Ballot m :: Type
   type Value m :: Type
   type NodeId m :: Type
-
-  ballot0 :: Ballot m
 
   propose :: Ballot m -> Message m Propose
   promise :: Ballot m -> Maybe (Proposal (Ballot m) (Value m)) -> Message m Promise
@@ -153,8 +151,8 @@ data ProposerState m = ProposerState
 
 deriving instance (Show (Value m), Show (NodeId m), Show (Ballot m)) => Show (ProposerState m)
 
-initProposerState :: MonadPaxos m => Value m -> ProposerState m
-initProposerState v =
+initProposerState :: MonadPaxos m => Ballot m -> Value m -> ProposerState m
+initProposerState ballot0 v =
   ProposerState
     { _proposerStateValue = v,
       _proposerStateBallot = ballot0,

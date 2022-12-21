@@ -10,6 +10,7 @@
 
 module Panagia.Paxos.Pure
   ( runPaxos,
+    ballot0,
     Value (..),
     Command (..),
     Config (..),
@@ -39,13 +40,19 @@ data Command
 
 type family State (r :: P.Role) :: Type where
   State P.Proposer = P.ProposerState Paxos
-  State P.Acceptor = (Maybe (P.Ballot Paxos), Maybe (P.Ballot Paxos, Value))
+  State P.Acceptor = (Maybe Ballot, Maybe (Ballot, Value))
 
 newtype Paxos r a = Paxos {unPaxos :: RWS Config [Command] (State r) a}
   deriving newtype (Functor, Applicative, Monad, MonadReader Config, MonadWriter [Command])
 
 runPaxos :: Paxos t a -> Config -> State t -> (a, State t, [Command])
 runPaxos = runRWS . unPaxos
+
+data Ballot = Ballot Natural NodeId
+  deriving (Show, Eq, Ord)
+
+ballot0 :: Ballot
+ballot0 = Ballot 0 (NodeId "")
 
 newtype NodeId = NodeId String
   deriving (Show, Eq, Ord)
@@ -65,17 +72,15 @@ configNodes :: (Profunctor p, Contravariant f) => Optic' p f Config (Set NodeId)
 configNodes = to _configNodes
 
 instance P.MonadPaxos Paxos where
-  data Ballot Paxos = Ballot Natural NodeId
+  type Ballot Paxos = Ballot
   type Value Paxos = Value
   type NodeId Paxos = NodeId
 
   data Message Paxos t where
-    Propose :: P.Ballot Paxos -> P.Message Paxos P.Propose
-    Promise :: P.Ballot Paxos -> Maybe (P.Ballot Paxos, Value) -> P.Message Paxos P.Promise
-    Accept :: P.Ballot Paxos -> Value -> P.Message Paxos P.Accept
-    Accepted :: (P.Ballot Paxos, Value) -> P.Message Paxos P.Accepted
-
-  ballot0 = Ballot 0 (NodeId "")
+    Propose :: Ballot -> P.Message Paxos P.Propose
+    Promise :: Ballot -> Maybe (Ballot, Value) -> P.Message Paxos P.Promise
+    Accept :: Ballot -> Value -> P.Message Paxos P.Accept
+    Accepted :: (Ballot, Value) -> P.Message Paxos P.Accepted
 
   propose = Propose
   promise = Promise
@@ -117,25 +122,19 @@ deriving instance Show (P.Message Paxos t)
 
 deriving instance Eq (P.Message Paxos t)
 
-deriving instance Show (P.Ballot Paxos)
-
-deriving instance Eq (P.Ballot Paxos)
-
-deriving instance Ord (P.Ballot Paxos)
-
-instance P.HasBallot (P.Message Paxos P.Propose) (P.Ballot Paxos) where
+instance P.HasBallot (P.Message Paxos P.Propose) Ballot where
   ballot = to $ \case
     Propose b -> b
 
-instance P.HasBallot (P.Message Paxos P.Promise) (P.Ballot Paxos) where
+instance P.HasBallot (P.Message Paxos P.Promise) Ballot where
   ballot = to $ \case
     Promise b _ -> b
 
-instance P.MayHaveProposal (P.Message Paxos P.Promise) (P.Ballot Paxos) Value where
+instance P.MayHaveProposal (P.Message Paxos P.Promise) Ballot Value where
   maybeProposal = to $ \case
     Promise _ v -> v
 
-instance P.HasBallot (P.Message Paxos P.Accept) (P.Ballot Paxos) where
+instance P.HasBallot (P.Message Paxos P.Accept) Ballot where
   ballot = to $ \case
     Accept b _ -> b
 
@@ -143,6 +142,6 @@ instance P.HasValue (P.Message Paxos P.Accept) Value where
   value = to $ \case
     Accept _ v -> v
 
-instance P.HasProposal (P.Message Paxos P.Accepted) (P.Ballot Paxos) Value where
+instance P.HasProposal (P.Message Paxos P.Accepted) Ballot Value where
   proposal = to $ \case
     Accepted p -> p

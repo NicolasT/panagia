@@ -5,7 +5,7 @@ module Main (main) where
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Panagia.Paxos (handleAccepted, handlePromise, initProposerState, phase1a, phase1b, phase2b)
-import Panagia.Paxos.Pure (Command (..), Config (..), NodeId (..), Value (..), runPaxos)
+import Panagia.Paxos.Pure (Command (..), Config (..), NodeId (..), Value (..), ballot0, runPaxos)
 import Test.Hspec (describe, hspec, it, shouldBe, shouldReturn)
 
 main :: IO ()
@@ -15,7 +15,7 @@ main = hspec $ do
 
 simpleTestCase :: IO ()
 simpleTestCase = do
-  let ((), ps, cs) = runPaxos phase1a proposerConfig (initProposerState value)
+  let ((), ps, cs) = runPaxos phase1a proposerConfig (initProposerState ballot0 value)
   loop ps nodes0 cs
     `shouldReturn` Map.fromList
       [ (acceptor0, Just value),
