@@ -13,11 +13,14 @@
 module Panagia.Paxos.Free
   ( PaxosT,
     Paxos,
+    runPaxosT,
     Command (..),
+    Message (..),
   )
 where
 
 import Control.Lens.Getter (to)
+import Control.Monad.State.Class (MonadState (..))
 import Control.Monad.Trans.Free (FreeT, liftF)
 import Data.Functor.Identity (Identity)
 import Data.Set (Set)
@@ -35,9 +38,11 @@ data Command ballot nodeId value m t param
   | GetBallot (Maybe ballot -> param)
   | StoreProposal (ballot, value) param
   | GetProposal (Maybe (ballot, value) -> param)
+  | GetProposerState (P.ProposerState (PaxosT ballot nodeId value m) -> param)
+  | SetProposerState (P.ProposerState (PaxosT ballot nodeId value m)) param
   deriving (Functor)
 
-newtype PaxosT ballot nodeId value m (t :: Role) a = PaxosT (FreeT (Command ballot nodeId value m t) m a)
+newtype PaxosT ballot nodeId value m (t :: Role) a = PaxosT {runPaxosT :: FreeT (Command ballot nodeId value m t) m a}
   deriving newtype (Functor, Applicative, Monad)
 
 type Paxos ballot nodeId value (t :: Role) = PaxosT ballot nodeId value Identity t
@@ -78,6 +83,10 @@ instance (Monad m, Ord ballot, Ord nodeId) => MonadPaxos (PaxosT ballot nodeId v
   getProposal = PaxosT $ liftF $ GetProposal id
 
 deriving instance (Show ballot, Show value) => Show (Message (PaxosT ballot nodeId value m) t)
+
+instance Monad m => MonadState (P.ProposerState (PaxosT ballot nodeId value m)) (PaxosT ballot nodeId value m t) where
+  get = PaxosT $ liftF $ GetProposerState id
+  put p = PaxosT $ liftF $ SetProposerState p ()
 
 instance HasBallot (Message (PaxosT ballot nodeId value m) P.Propose) ballot where
   ballot = to $ \case

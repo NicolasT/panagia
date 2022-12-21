@@ -1,11 +1,14 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Main (main) where
 
+import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Panagia.Paxos (handleAccepted, handlePromise, initProposerState, phase1a, phase1b, phase2b)
-import Panagia.Paxos.Pure (Command (..), Config (..), NodeId (..), Value (..), ballot0, runPaxos)
+import Panagia.Paxos (Role (..), handleAccepted, handlePromise, initProposerState, phase1a, phase1b, phase2b)
+import Panagia.Paxos.Pure (Command (..), Config (..), NodeId (..), State (..), Value (..), ballot0, runPaxos)
 import Test.Hspec (describe, hspec, it, shouldBe, shouldReturn)
 
 main :: IO ()
@@ -15,7 +18,7 @@ main = hspec $ do
 
 simpleTestCase :: IO ()
 simpleTestCase = do
-  let ((), ps, cs) = runPaxos phase1a proposerConfig (initProposerState ballot0 value)
+  let ((), ps, cs) = runPaxos phase1a proposerConfig (StateProposer $ initProposerState ballot0 value)
   loop ps nodes0 cs
     `shouldReturn` Map.fromList
       [ (acceptor0, Just value),
@@ -33,7 +36,12 @@ simpleTestCase = do
 
     acceptors = Set.fromList [acceptor0, acceptor1, acceptor2]
 
-    nodes0 = Map.fromList (map (\a -> (a, (Config a acceptors, (Nothing, Nothing)))) (Set.toList acceptors))
+    nodes0 :: Map NodeId (Config, State Acceptor)
+    nodes0 =
+      Map.fromList $
+        map
+          (\a -> (a, (Config a acceptors, StateAcceptor Nothing Nothing)))
+          (Set.toList acceptors)
 
     broadcast ps nodes cs act = do
       let (cs', nodes') =
@@ -47,8 +55,9 @@ simpleTestCase = do
       let ((), ps', cs') = runPaxos act proposerConfig ps
       loop ps' nodes (cs <> cs')
 
+    loop :: State Proposer -> Map NodeId (Config, State Acceptor) -> [Command] -> IO (Map NodeId (Maybe Value))
     loop ps nodes = \case
-      [] -> return $ Map.map (\(_, (_, v)) -> fmap snd v) nodes
+      [] -> return $ Map.map (\(_, StateAcceptor _ v) -> fmap snd v) nodes
       (c : cs) -> case c of
         BroadcastPropose from msg -> do
           from `shouldBe` proposer
