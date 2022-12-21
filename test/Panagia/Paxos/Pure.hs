@@ -16,15 +16,14 @@ where
 
 import Control.Lens.Getter (Contravariant, to, view)
 import Control.Lens.Type (Optic')
-import Control.Monad.Trans.Free (iterTM)
-import Control.Monad.Trans.RWS (gets, modify, runRWST, tell)
-import Data.Functor.Identity (Identity, runIdentity)
+import Control.Monad.RWS (gets, modify, runRWS, tell)
+import Control.Monad.Trans.Free (iterM)
 import Data.Profunctor (Profunctor)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Natural (Natural)
 import Panagia.Paxos (Message, MessageType (..), ProposerState, Role (..))
-import Panagia.Paxos.Free (Paxos, PaxosT, runPaxosT)
+import Panagia.Paxos.Free (Paxos)
 import qualified Panagia.Paxos.Free as P
 
 data Ballot = Ballot Natural NodeId
@@ -51,19 +50,19 @@ configNodes :: (Profunctor p, Contravariant f) => Optic' p f Config (Set NodeId)
 configNodes = to _configNodes
 
 data State (r :: Role) where
-  StateProposer :: ProposerState (PaxosT Ballot NodeId Value Identity) -> State Proposer
+  StateProposer :: ProposerState (Paxos Ballot NodeId Value) -> State Proposer
   StateAcceptor :: Maybe Ballot -> Maybe (Ballot, Value) -> State Acceptor
 
 data Command
-  = BroadcastPropose NodeId (Message (PaxosT Ballot NodeId Value Identity) Propose)
-  | UnicastPromise NodeId NodeId (Message (PaxosT Ballot NodeId Value Identity) Promise)
-  | BroadcastAccept NodeId (Message (PaxosT Ballot NodeId Value Identity) Accept)
-  | UnicastAccepted NodeId NodeId (Message (PaxosT Ballot NodeId Value Identity) Accepted)
+  = BroadcastPropose NodeId (Message (Paxos Ballot NodeId Value) Propose)
+  | UnicastPromise NodeId NodeId (Message (Paxos Ballot NodeId Value) Promise)
+  | BroadcastAccept NodeId (Message (Paxos Ballot NodeId Value) Accept)
+  | UnicastAccepted NodeId NodeId (Message (Paxos Ballot NodeId Value) Accepted)
 
 runPaxos :: Paxos Ballot NodeId Value t a -> Config -> State t -> (a, State t, [Command])
-runPaxos act cfg state = runIdentity $ runRWST act' cfg state
+runPaxos = runRWS . iterM act . P.runPaxos
   where
-    act' = flip iterTM (runPaxosT act) $ \case
+    act = \case
       P.BroadcastPropose msg cont -> do
         node <- view configNodeId
         tell [BroadcastPropose node msg]
