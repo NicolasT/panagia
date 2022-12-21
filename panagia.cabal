@@ -49,6 +49,9 @@ Common warnings
     -Wpartial-fields
     -Wredundant-constraints
 
+    -- See https://gitlab.haskell.org/ghc/ghc/issues/20531
+    -Wno-unticked-promoted-constructors
+
   if flag(werror)
     Ghc-Options:
       -Werror
@@ -61,10 +64,14 @@ Library
   Hs-Source-Dirs:   src
   Default-Language: Haskell2010
   Exposed-Modules:
-    MyLib,
+    Panagia.Paxos,
   Other-Modules:
   Build-Depends:
     base ^>=4.14.2.0,
+    containers ^>=0.6.6,
+    lens ^>=5.2,
+    mtl ^>=2.3.1,
+    profunctors ^>=5.6.2,
 
 Executable panagia
   import:           warnings
@@ -83,6 +90,12 @@ Test-Suite panagia-test
   Default-Language: Haskell2010
   Main-Is:          Main.hs
   Other-Modules:
+    Panagia.Paxos.Pure,
   Build-Depends:
     base ^>=4.14.2.0,
     panagia,
+    containers ^>=0.6.6,
+    hspec ^>=2.10.8,
+    lens ^>=5.2,
+    mtl ^>=2.3.1,
+    profunctors ^>=5.6.2,
