@@ -55,7 +55,6 @@ simpleTestCase = do
       let ((), ps', cs') = runPaxos act proposerConfig ps
       loop ps' nodes (cs <> cs')
 
-    loop :: State Proposer -> Map NodeId (Config, State Acceptor) -> [Command] -> IO (Map NodeId (Maybe Value))
     loop ps nodes = \case
       [] -> return $ Map.map (\(_, StateAcceptor _ v) -> fmap snd v) nodes
       (c : cs) -> case c of
@@ -71,3 +70,6 @@ simpleTestCase = do
         UnicastAccepted from to msg -> do
           to `shouldBe` proposer
           unicast ps nodes cs (handleAccepted from msg)
+        Log {} ->
+          -- Ignore logging
+          loop ps nodes cs

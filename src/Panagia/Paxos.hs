@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -33,6 +34,7 @@ import Control.Lens.Lens (Lens', lens, (<%=))
 import Control.Lens.Setter ((.=))
 import Control.Lens.Type (Optic')
 import Control.Monad (when)
+import Control.Monad.Logger (LogLevel (..), LogStr, MonadLogger, ToLogStr (..), logWithoutLoc)
 import Control.Monad.State.Class (MonadState)
 import Data.Kind (Type)
 import Data.List (sortOn)
@@ -172,14 +174,18 @@ proposerStatePromises = lens _proposerStatePromises (\s p -> s {_proposerStatePr
 proposerStateAccepteds :: Lens' (ProposerState m) (Map (NodeId m) (Proposal (Ballot m) (Value m)))
 proposerStateAccepteds = lens _proposerStateAccepteds (\s a -> s {_proposerStateAccepteds = a})
 
-phase1a :: (MonadPaxos m, MonadState (ProposerState m) (m Proposer)) => m Proposer ()
+phase1a :: (MonadPaxos m, MonadLogger (m Proposer), ToLogStr (Ballot m), MonadState (ProposerState m) (m Proposer)) => m Proposer ()
 phase1a = do
   b <- newBallot'
+  logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "Broadcasting Propose for ballot " <> toLogStr b
   broadcast $ propose b
   where
     newBallot' = do
+      logWithoutLoc "Panagia.Paxos.phase1a" LevelInfo ("Progressing to next ballot" :: LogStr)
       currentBallot <- use proposerStateBallot
+      logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "Current ballot is " <> toLogStr currentBallot
       nextBallot <- newBallot currentBallot
+      logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "New ballot is " <> toLogStr nextBallot
       proposerStateBallot .= nextBallot
       -- New ballot, empty vote tracking maps
       proposerStatePromises .= mempty
@@ -197,7 +203,7 @@ phase1b sender msg = do
     currentProposal <- getProposal
     unicast sender $ promise bal currentProposal
 
-handlePromise :: MonadState (ProposerState m) (m Proposer) => MessageHandler m Promise
+handlePromise :: (MonadState (ProposerState m) (m Proposer), MonadLogger (m Proposer), ToLogStr (Ballot m)) => MessageHandler m Promise
 handlePromise sender msg = do
   currentBallot <- use proposerStateBallot
   case compare currentBallot (view ballot msg) of
@@ -232,7 +238,7 @@ phase2b sender msg = do
     storeProposal p
     unicast sender $ accepted p
 
-handleAccepted :: MonadState (ProposerState m) (m Proposer) => MessageHandler m Accepted
+handleAccepted :: (MonadState (ProposerState m) (m Proposer), MonadLogger (m Proposer), ToLogStr (Ballot m)) => MessageHandler m Accepted
 handleAccepted sender msg = do
   currentBallot <- use proposerStateBallot
   let (b, _) = view proposal msg

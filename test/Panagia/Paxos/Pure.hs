@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Panagia.Paxos.Pure
@@ -16,6 +17,7 @@ where
 
 import Control.Lens.Getter (Contravariant, to, view)
 import Control.Lens.Type (Optic')
+import Control.Monad.Logger (Loc, LogLevel, LogSource, LogStr, ToLogStr, toLogStr)
 import Control.Monad.RWS (gets, modify, runRWS, tell)
 import Control.Monad.Trans.Free (iterM)
 import Data.Profunctor (Profunctor)
@@ -29,11 +31,17 @@ import qualified Panagia.Paxos.Free as P
 data Ballot = Ballot Natural NodeId
   deriving (Show, Eq, Ord)
 
+instance ToLogStr Ballot where
+  toLogStr (Ballot idx n) = mconcat ["(", toLogStr (show idx), ", ", toLogStr n, ")"]
+
 ballot0 :: Ballot
 ballot0 = Ballot 0 (NodeId "")
 
 newtype NodeId = NodeId String
   deriving (Show, Eq, Ord)
+
+instance ToLogStr NodeId where
+  toLogStr (NodeId n) = toLogStr n
 
 newtype Value = Value Natural
   deriving (Show, Eq)
@@ -58,6 +66,7 @@ data Command
   | UnicastPromise NodeId NodeId (Message (Paxos Ballot NodeId Value) Promise)
   | BroadcastAccept NodeId (Message (Paxos Ballot NodeId Value) Accept)
   | UnicastAccepted NodeId NodeId (Message (Paxos Ballot NodeId Value) Accepted)
+  | Log Loc LogSource LogLevel LogStr
 
 runPaxos :: Paxos Ballot NodeId Value t a -> Config -> State t -> (a, State t, [Command])
 runPaxos = runRWS . iterM act . P.runPaxos
@@ -115,4 +124,7 @@ runPaxos = runRWS . iterM act . P.runPaxos
         modify $ \case
           StateAcceptor {} -> error "Impossible"
           StateProposer {} -> StateProposer p
+        cont
+      P.Log loc src lvl msg cont -> do
+        tell [Log loc src lvl msg]
         cont

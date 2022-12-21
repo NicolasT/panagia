@@ -21,6 +21,7 @@ module Panagia.Paxos.Free
 where
 
 import Control.Lens.Getter (to)
+import Control.Monad.Logger (Loc, LogLevel, LogSource, LogStr, MonadLogger (..), toLogStr)
 import Control.Monad.State.Class (MonadState (..))
 import Control.Monad.Trans.Free (Free, FreeT, liftF)
 import Data.Functor.Identity (Identity)
@@ -41,6 +42,7 @@ data Command ballot nodeId value m param
   | GetProposal (Maybe (ballot, value) -> param)
   | GetProposerState (P.ProposerState (PaxosT ballot nodeId value m) -> param)
   | SetProposerState (P.ProposerState (PaxosT ballot nodeId value m)) param
+  | Log Loc LogSource LogLevel LogStr param
   deriving (Functor)
 
 newtype PaxosT ballot nodeId value m (t :: Role) a = PaxosT {runPaxosT :: FreeT (Command ballot nodeId value m) m a}
@@ -91,6 +93,9 @@ deriving instance (Show ballot, Show value) => Show (Message (PaxosT ballot node
 instance Monad m => MonadState (P.ProposerState (PaxosT ballot nodeId value m)) (PaxosT ballot nodeId value m t) where
   get = PaxosT $ liftF $ GetProposerState id
   put p = PaxosT $ liftF $ SetProposerState p ()
+
+instance Monad m => MonadLogger (PaxosT ballot nodeId value m t) where
+  monadLoggerLog loc src lvl msg = PaxosT $ liftF $ Log loc src lvl (toLogStr msg) ()
 
 instance HasBallot (Message (PaxosT ballot nodeId value m) P.Propose) ballot where
   ballot = to $ \case
