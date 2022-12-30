@@ -1,6 +1,4 @@
 Hlint: True
--- Required for compatibility with GHC 8.10.
-Hlint-Version: ^>=3.4
 
 Raw-Project
   Package panagia

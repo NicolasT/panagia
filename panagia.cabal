@@ -1,88 +1,69 @@
-Cabal-Version:      3.0
-Build-Type:         Simple
-
-Name:               panagia
-Version:            0.0.1.0
-Synopsis:           An island close to Paxos
-Description:
+cabal-version:   3.0
+build-type:      Simple
+name:            panagia
+version:         0.0.1.0
+synopsis:        An island close to Paxos
+description:
   Experiments to build a verified Paxos implementation in Haskell.
 
-Homepage:           https://github.com/NicolasT/panagia
-Bug-Reports:        https://github.com/NicolasT/panagia/issues
-License:            Apache-2.0
-License-File:       LICENSE
-Author:             Nicolas Trangez
-Maintainer:         ikke@nicolast.be
-Copyright:          (c) 2022, Nicolas Trangez
+homepage:        https://github.com/NicolasT/panagia
+bug-reports:     https://github.com/NicolasT/panagia/issues
+license:         Apache-2.0
+license-file:    LICENSE
+author:          Nicolas Trangez
+maintainer:      ikke@nicolast.be
+copyright:       (c) 2022, Nicolas Trangez
+category:        Network
+stability:       Experimental
+extra-doc-files: CHANGELOG.md
+tested-with:     GHC ==9.4.3
 
-Category:           Network
-Stability:          Experimental
+source-repository head
+  type:     git
+  location: https://github.com/NicolasT/panagia.git
+  branch:   main
 
-Extra-Doc-Files:
-  CHANGELOG.md
+flag werror
+  description: Turn compiler warnings into errors.
+  default:     False
+  manual:      True
 
-Tested-With:
-  GHC ==8.10.5
-
-Source-Repository head
-  Type:             git
-  Location:         https://github.com/NicolasT/panagia.git
-  Branch:           main
-
-Flag werror
-  Description:      Turn compiler warnings into errors.
-  Default:          False
-  Manual:           True
-
-Common warnings
-  Ghc-Options:
-    -Wall
-    -Wcompat
-    -Wcpp-undef
-    -Widentities
-    -Wincomplete-patterns
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wmissing-export-lists
-    -Wmissing-home-modules
-    -Worphans
-    -Wpartial-fields
-    -Wredundant-constraints
+common warnings
+  ghc-options:
+    -Wall -Wcompat -Wcpp-undef -Widentities -Wincomplete-patterns
+    -Wincomplete-record-updates -Wincomplete-uni-patterns
+    -Wmissing-export-lists -Wmissing-home-modules -Worphans
+    -Wpartial-fields -Wredundant-constraints
 
   if flag(werror)
-    Ghc-Options:
-      -Werror
-      -optc=-Werror
-    Cc-Options:
-      -Werror
+    ghc-options: -Werror -optc=-Werror
+    cc-options:  -Werror
 
-Library
+library
   import:           warnings
-  Hs-Source-Dirs:   src
-  Default-Language: Haskell2010
-  Exposed-Modules:
-    MyLib,
-  Other-Modules:
-  Build-Depends:
-    base ^>=4.14.2.0,
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  exposed-modules:  MyLib
+  other-modules:
+  build-depends:    base ^>=4.17.0.0
 
-Executable panagia
+executable panagia
   import:           warnings
-  Hs-Source-Dirs:   app
-  Default-Language: Haskell2010
-  Main-Is:          Main.hs
-  Other-Modules:
-  Build-depends:
-    base ^>=4.14.2.0,
-    panagia,
+  hs-source-dirs:   app
+  default-language: Haskell2010
+  main-is:          Main.hs
+  other-modules:
+  build-depends:
+    , base     ^>=4.17.0.0
+    , panagia
 
-Test-Suite panagia-test
+test-suite panagia-test
   import:           warnings
-  Type:             exitcode-stdio-1.0
-  Hs-Source-Dirs:   test
-  Default-Language: Haskell2010
-  Main-Is:          Main.hs
-  Other-Modules:
-  Build-Depends:
-    base ^>=4.14.2.0,
-    panagia,
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  default-language: Haskell2010
+  main-is:          Main.hs
+  other-modules:
+  build-depends:
+    , base     ^>=4.17.0.0
+    , panagia
