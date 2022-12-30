@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Panagia.Paxos.Pure
@@ -27,12 +28,19 @@ import GHC.Natural (Natural)
 import Panagia.Paxos (Message, MessageType (..), ProposerState, Role (..))
 import Panagia.Paxos.Free (Paxos)
 import qualified Panagia.Paxos.Free as P
+import Test.QuickCheck (Arbitrary (..))
 
 data Ballot = Ballot Natural NodeId
   deriving (Show, Eq, Ord)
 
 instance ToLogStr Ballot where
   toLogStr (Ballot idx n) = mconcat ["(", toLogStr (show idx), ", ", toLogStr n, ")"]
+
+instance Arbitrary Ballot where
+  arbitrary = Ballot <$> arbitraryNatural <*> arbitrary
+    where
+      arbitraryNatural = fromIntegral @Word <$> arbitrary
+  shrink (Ballot idx n) = [Ballot (fromIntegral idx') n' | idx' <- shrink (fromIntegral idx :: Word), n' <- shrink n]
 
 ballot0 :: Ballot
 ballot0 = Ballot 0 (NodeId "")
@@ -42,6 +50,10 @@ newtype NodeId = NodeId String
 
 instance ToLogStr NodeId where
   toLogStr (NodeId n) = toLogStr n
+
+instance Arbitrary NodeId where
+  arbitrary = NodeId <$> arbitrary
+  shrink (NodeId n) = [NodeId n' | n' <- shrink n]
 
 newtype Value = Value Natural
   deriving (Show, Eq)

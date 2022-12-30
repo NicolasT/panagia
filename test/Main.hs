@@ -7,14 +7,39 @@ module Main (main) where
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Panagia.Paxos (Role (..), handleAccepted, handlePromise, initProposerState, phase1a, phase1b, phase2b)
+import Panagia.Paxos (Role (..), handleAccepted, handlePromise, initProposerState, phase1a, phase1b, phase2b, prop_newBallot, prop_newBallot', prop_phase1b)
 import Panagia.Paxos.Pure (Command (..), Config (..), NodeId (..), State (..), Value (..), ballot0, runPaxos)
 import Test.Hspec (describe, hspec, it, shouldBe, shouldReturn)
+import Test.Hspec.QuickCheck (prop)
 
 main :: IO ()
 main = hspec $ do
   describe "Simple test-case" $ do
     it "works" simpleTestCase
+
+  describe "Properties" $ do
+    let runProposer b act =
+          let nodeId = NodeId "node0"
+           in let state = StateProposer (initProposerState b (Value 0))
+               in let config = Config nodeId (Set.singleton nodeId)
+                   in let (a, _, _) = runPaxos act config state
+                       in a
+
+    let runAcceptor b act =
+          let nodeId = NodeId "node0"
+           in let state = StateAcceptor b Nothing
+               in let config = Config nodeId (Set.singleton nodeId)
+                   in let (a, _, _) = runPaxos act config state
+                       in a
+
+    prop "newBallot" $ \b0 b' ->
+      runProposer b0 (prop_newBallot b')
+
+    prop "newBallot'" $ \b ->
+      runProposer b prop_newBallot'
+
+    prop "phase1b" $ \b s m ->
+      runAcceptor b (prop_phase1b s m)
 
 simpleTestCase :: IO ()
 simpleTestCase = do

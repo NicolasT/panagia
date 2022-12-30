@@ -26,12 +26,16 @@ module Panagia.Paxos
     handlePromise,
     phase2b,
     handleAccepted,
+    prop_newBallot,
+    prop_phase1b,
+    prop_newBallot',
   )
 where
 
+import Control.Lens.At (at)
 import Control.Lens.Getter (Contravariant, Getter, to, use, view)
 import Control.Lens.Lens (Lens', lens, (<%=))
-import Control.Lens.Setter ((.=))
+import Control.Lens.Setter ((.=), (?=))
 import Control.Lens.Type (Optic')
 import Control.Monad (when)
 import Control.Monad.Logger (LogLevel (..), LogStr, MonadLogger, ToLogStr (..), logWithoutLoc)
@@ -142,6 +146,11 @@ class
   storeProposal :: Proposal (Ballot m) (Value m) -> m Acceptor ()
   getProposal :: m Acceptor (Maybe (Proposal (Ballot m) (Value m)))
 
+prop_newBallot :: MonadPaxos m => Ballot m -> m Proposer Bool
+prop_newBallot b = do
+  next <- newBallot b
+  return (next > b)
+
 type MessageHandler m t = MonadPaxos m => NodeId m -> Message m t -> m (Receiver t) ()
 
 data ProposerState m = ProposerState
@@ -152,6 +161,8 @@ data ProposerState m = ProposerState
   }
 
 deriving instance (Show (Value m), Show (NodeId m), Show (Ballot m)) => Show (ProposerState m)
+
+deriving instance (Eq (Value m), Eq (NodeId m), Eq (Ballot m)) => Eq (ProposerState m)
 
 initProposerState :: MonadPaxos m => Ballot m -> Value m -> ProposerState m
 initProposerState ballot0 v =
@@ -176,22 +187,37 @@ proposerStateAccepteds = lens _proposerStateAccepteds (\s a -> s {_proposerState
 
 phase1a :: (MonadPaxos m, MonadLogger (m Proposer), ToLogStr (Ballot m), MonadState (ProposerState m) (m Proposer)) => m Proposer ()
 phase1a = do
-  b <- newBallot'
+  newBallot'
+  b <- use proposerStateBallot
   logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "Broadcasting Propose for ballot " <> toLogStr b
   broadcast $ propose b
-  where
-    newBallot' = do
-      logWithoutLoc "Panagia.Paxos.phase1a" LevelInfo ("Progressing to next ballot" :: LogStr)
-      currentBallot <- use proposerStateBallot
-      logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "Current ballot is " <> toLogStr currentBallot
-      nextBallot <- newBallot currentBallot
-      logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "New ballot is " <> toLogStr nextBallot
-      proposerStateBallot .= nextBallot
-      -- New ballot, empty vote tracking maps
-      proposerStatePromises .= mempty
-      proposerStateAccepteds .= mempty
 
-      return nextBallot
+newBallot' :: (MonadPaxos m, MonadLogger (m Proposer), ToLogStr (Ballot m), MonadState (ProposerState m) (m Proposer)) => m Proposer ()
+newBallot' = do
+  logWithoutLoc "Panagia.Paxos.phase1a" LevelInfo ("Progressing to next ballot" :: LogStr)
+  currentBallot <- use proposerStateBallot
+  logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "Current ballot is " <> toLogStr currentBallot
+  nextBallot <- newBallot currentBallot
+  logWithoutLoc "Panagia.Paxos.phase1a" LevelDebug $ "New ballot is " <> toLogStr nextBallot
+  proposerStateBallot .= nextBallot
+  -- New ballot, empty vote tracking maps
+  proposerStatePromises .= mempty
+  proposerStateAccepteds .= mempty
+
+prop_newBallot' :: (MonadPaxos m, MonadLogger (m Proposer), ToLogStr (Ballot m), MonadState (ProposerState m) (m Proposer)) => m Proposer Bool
+prop_newBallot' = do
+  firstBallot <- use proposerStateBallot
+
+  newBallot'
+
+  lastBallot <- use proposerStateBallot
+  promises <- use proposerStatePromises
+  accepteds <- use proposerStateAccepteds
+
+  return $
+    lastBallot > firstBallot
+      && Map.null promises
+      && Map.null accepteds
 
 phase1b :: MessageHandler m Propose
 phase1b sender msg = do
@@ -203,6 +229,18 @@ phase1b sender msg = do
     currentProposal <- getProposal
     unicast sender $ promise bal currentProposal
 
+prop_phase1b :: MonadPaxos m => NodeId m -> Message m Propose -> m Acceptor Bool
+prop_phase1b sender msg = do
+  fstBallot <- getBallot
+  phase1b sender msg
+  sndBallot <- getBallot
+  let msgBallot = view ballot msg
+
+  return $
+    if Just msgBallot > fstBallot
+      then sndBallot == Just msgBallot
+      else sndBallot == fstBallot
+
 handlePromise :: (MonadState (ProposerState m) (m Proposer), MonadLogger (m Proposer), ToLogStr (Ballot m)) => MessageHandler m Promise
 handlePromise sender msg = do
   currentBallot <- use proposerStateBallot
@@ -212,10 +250,12 @@ handlePromise sender msg = do
       phase1a
     GT -> return ()
     EQ -> do
-      ps <- proposerStatePromises <%= Map.insert sender (view maybeProposal msg)
-      whenM
-        (quorumReached (Set.fromList (Map.keys ps)))
-        phase2a
+      proposerStatePromises . at sender ?= view maybeProposal msg
+      whenM quorumReached' phase2a
+  where
+    quorumReached' = do
+      promises <- use proposerStatePromises
+      quorumReached (Set.fromList (Map.keys promises))
 
 phase2a :: (MonadPaxos m, MonadState (ProposerState m) (m Proposer)) => m Proposer ()
 phase2a = do

@@ -28,6 +28,7 @@ import Data.Functor.Identity (Identity)
 import Data.Set (Set)
 import Panagia.Paxos (HasBallot, HasProposal, HasValue, MayHaveProposal, MonadPaxos (..), Role)
 import qualified Panagia.Paxos as P
+import Test.QuickCheck (Arbitrary (..))
 
 data Command ballot nodeId value m param
   = BroadcastPropose (Message (PaxosT ballot nodeId value m) P.Propose) param
@@ -46,7 +47,7 @@ data Command ballot nodeId value m param
   deriving (Functor)
 
 newtype PaxosT ballot nodeId value m (t :: Role) a = PaxosT {runPaxosT :: FreeT (Command ballot nodeId value m) m a}
-  deriving newtype (Functor, Applicative, Monad)
+  deriving newtype (Functor, Applicative, Monad, MonadFail)
 
 type Paxos ballot nodeId value = PaxosT ballot nodeId value Identity
 
@@ -89,6 +90,10 @@ instance (Monad m, Ord ballot, Ord nodeId) => MonadPaxos (PaxosT ballot nodeId v
   getProposal = PaxosT $ liftF $ GetProposal id
 
 deriving instance (Show ballot, Show value) => Show (Message (PaxosT ballot nodeId value m) t)
+
+instance Arbitrary ballot => Arbitrary (Message (PaxosT ballot nodeId value m) P.Propose) where
+  arbitrary = Propose <$> arbitrary
+  shrink (Propose s) = [Propose s' | s' <- shrink s]
 
 instance Monad m => MonadState (P.ProposerState (PaxosT ballot nodeId value m)) (PaxosT ballot nodeId value m t) where
   get = PaxosT $ liftF $ GetProposerState id
