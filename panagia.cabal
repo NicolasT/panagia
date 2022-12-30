@@ -22,7 +22,7 @@ Extra-Doc-Files:
   CHANGELOG.md
 
 Tested-With:
-  GHC ==8.10.5
+  GHC ==9.4.3
 
 Source-Repository head
   Type:             git
@@ -64,7 +64,7 @@ Library
     MyLib,
   Other-Modules:
   Build-Depends:
-    base ^>=4.14.2.0,
+    base ^>=4.17.0.0,
 
 Executable panagia
   import:           warnings
@@ -73,7 +73,7 @@ Executable panagia
   Main-Is:          Main.hs
   Other-Modules:
   Build-depends:
-    base ^>=4.14.2.0,
+    base ^>=4.17.0.0,
     panagia,
 
 Test-Suite panagia-test
@@ -84,5 +84,5 @@ Test-Suite panagia-test
   Main-Is:          Main.hs
   Other-Modules:
   Build-Depends:
-    base ^>=4.14.2.0,
+    base ^>=4.17.0.0,
     panagia,
