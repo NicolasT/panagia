@@ -1,4 +1,11 @@
 module Main (main) where
 
+import qualified Panagia.Quorum.Test as PQ
+import Test.Tasty (defaultMain, testGroup)
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented."
+main =
+  defaultMain $
+    testGroup
+      "Tests"
+      [PQ.tests]
