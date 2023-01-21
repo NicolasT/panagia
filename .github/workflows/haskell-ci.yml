@@ -8,9 +8,9 @@
 #
 # For more information, see https://github.com/haskell-CI/haskell-ci
 #
-# version: 0.15.20221107
+# version: 0.15.20221225
 #
-# REGENDATA ("0.15.20221107",["github","panagia.cabal"])
+# REGENDATA ("0.15.20221225",["github","panagia.cabal"])
 #
 name: Haskell-CI
 on:
@@ -109,7 +109,7 @@ jobs:
       - name: cache (tools)
         uses: actions/cache@v2
         with:
-          key: ${{ runner.os }}-${{ matrix.compiler }}-tools-8e6139cc
+          key: ${{ runner.os }}-${{ matrix.compiler }}-tools-edbf4cb5
           path: ~/.haskell-ci-tools
       - name: install cabal-plan
         run: |
@@ -120,6 +120,10 @@ jobs:
           rm -f cabal-plan.xz
           chmod a+x $HOME/.cabal/bin/cabal-plan
           cabal-plan --version
+      - name: install doctest
+        run: |
+          $CABAL --store-dir=$HOME/.haskell-ci-tools/store v2-install $ARG_COMPILER --ignore-project -j2 doctest --constraint='doctest ^>=0.20'
+          doctest --version
       - name: install hlint
         run: |
           HLINTVER=$(cd /tmp && (${CABAL} v2-install -v $ARG_COMPILER --dry-run hlint  --constraint='hlint >=3.5 && <3.6' |  perl -ne 'if (/\bhlint-(\d+(\.\d+)*)\b/) { print "$1"; last; }')); echo "HLint version $HLINTVER"
@@ -183,6 +187,10 @@ jobs:
       - name: tests
         run: |
           $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --test-show-details=direct
+      - name: doctest
+        run: |
+          cd ${PKGDIR_panagia} || false
+          doctest  -XHaskell2010 src
       - name: hlint
         run: |
           (cd ${PKGDIR_panagia} && hlint -XHaskell2010 src)

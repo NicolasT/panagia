@@ -43,9 +43,11 @@ library
   import:           warnings
   hs-source-dirs:   src
   default-language: Haskell2010
-  exposed-modules:  MyLib
+  exposed-modules:  Panagia.Quorum
   other-modules:
-  build-depends:    base ^>=4.17.0.0
+  build-depends:
+    , base        ^>=4.17.0.0
+    , containers  ^>=0.6.6
 
 executable panagia
   import:           warnings
@@ -63,7 +65,24 @@ test-suite panagia-test
   hs-source-dirs:   test
   default-language: Haskell2010
   main-is:          Main.hs
-  other-modules:
+  other-modules:    Panagia.Quorum.Test
   build-depends:
-    , base     ^>=4.17.0.0
+    , base              ^>=4.17.0.0
+    , containers        ^>=0.6.6
+    , panagia
+    , tasty             ^>=1.4.3
+    , tasty-hunit       ^>=0.10.0.3
+    , tasty-quickcheck  ^>=0.10.2
+
+benchmark panagia-bench
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   benchmark
+  default-language: Haskell2010
+  main-is:          Main.hs
+  other-modules:    Panagia.Quorum.Benchmark
+  build-depends:
+    , base        ^>=4.17.0.0
+    , containers  ^>=0.6.6
+    , criterion   ^>=1.6.0.0
     , panagia
