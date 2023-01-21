@@ -1,7 +1,10 @@
+Distribution: jammy
+Apt: z3
+
 Hlint: True
 
 Doctest: True
 
 Raw-Project
   Package panagia
-    Flags: +werror
+    Flags: +werror +test-smt
