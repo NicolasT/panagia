@@ -8,7 +8,7 @@ description:
 
 homepage:        https://github.com/NicolasT/panagia
 bug-reports:     https://github.com/NicolasT/panagia/issues
-license:         Apache-2.0
+license:         GPL-3.0-only
 license-file:    LICENSE
 author:          Nicolas Trangez
 maintainer:      ikke@nicolast.be
