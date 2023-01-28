@@ -1,7 +1,5 @@
 Hlint: True
 
-Doctest: True
-
 Raw-Project
   Package panagia
-    Flags: +werror
+    Flags: +werror +test-doctest
