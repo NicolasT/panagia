@@ -8,9 +8,9 @@
 #
 # For more information, see https://github.com/haskell-CI/haskell-ci
 #
-# version: 0.15.20221107
+# version: 0.15.20221225
 #
-# REGENDATA ("0.15.20221107",["github","panagia.cabal"])
+# REGENDATA ("0.15.20221225",["github","panagia.cabal"])
 #
 name: Haskell-CI
 on:
@@ -155,7 +155,7 @@ jobs:
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
           package panagia
-            flags: +werror
+            flags: +werror +test-doctest
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(panagia)$/; }' >> cabal.project.local
           cat cabal.project
