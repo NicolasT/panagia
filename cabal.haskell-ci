@@ -1,5 +1,7 @@
 Hlint: True
 
+Haddock-Components: libs
+
 Raw-Project
   Package panagia
     Flags: +werror +test-doctest

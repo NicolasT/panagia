@@ -1,5 +1,5 @@
 cabal-version:   3.0
-build-type:      Simple
+build-type:      Custom
 name:            panagia
 version:         0.0.1.0
 synopsis:        An island close to Paxos
@@ -17,6 +17,12 @@ category:        Network
 stability:       Experimental
 extra-doc-files: CHANGELOG.md
 tested-with:     GHC ==9.4.3
+
+custom-setup
+  setup-depends:
+    , base           ^>=4.17.0.0
+    , Cabal          ^>=3.6.3.0  || ^>=3.8.1.0
+    , cabal-doctest  ^>=1.0.9
 
 source-repository head
   type:     git
@@ -93,7 +99,8 @@ benchmark panagia-bench
     , panagia
 
 test-suite panagia-doctest
-  import:           warnings
+  import:               warnings
+  x-doctest-components: lib
 
   if flag(test-doctest)
     buildable: True
@@ -101,10 +108,18 @@ test-suite panagia-doctest
   else
     buildable: False
 
-  type:             exitcode-stdio-1.0
-  hs-source-dirs:   test
-  default-language: Haskell2010
-  main-is:          panagia-doctest.hs
+  type:                 exitcode-stdio-1.0
+  hs-source-dirs:       test
+  default-language:     Haskell2010
+  main-is:              panagia-doctest.hs
+  other-modules:        Build_doctests
+  autogen-modules:      Build_doctests
+
+  -- Disable warnings triggered by the (generated) 'Build_doctests' module
+  ghc-options:          -Wno-missing-export-lists
   build-depends:
-    , base     ^>=4.17.0.0
-    , doctest  ^>=0.20.1
+    , base              ^>=4.17.0.0
+    , doctest           ^>=0.20.1
+    , panagia
+    , QuickCheck        ^>=2.14.2
+    , template-haskell  ^>=2.19.0.0
