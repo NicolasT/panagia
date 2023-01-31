@@ -263,7 +263,7 @@ prop_quorumNonEmpty = not . null
 --
 -- Note, in the above the (potential) quorums are explicitly generated as a
 -- subset of the universe, since otherwise too many non-quorum sets would
--- be generated, causing 'quickCheck' to bail out after too many discarded
+-- be generated, causing @quickCheck@ to bail out after too many discarded
 -- test-cases.
 prop_quorum ::
   (Foldable f, Eq a) =>
@@ -278,7 +278,7 @@ prop_quorum ::
   -- | Quorums obey to quorum properties within the universe.
   --
   -- If either of the given sets is not a quorum in the universe, 'Nothing'
-  -- is returned, which 'quickCheck' then treats as a discarded test-case.
+  -- is returned, which @quickCheck@ then treats as a discarded test-case.
   Maybe Bool
 prop_quorum isQuorum a q1 q2
   | isQuorum q1 && isQuorum q2 =
