@@ -52,8 +52,8 @@ data ProposerF node ballot value a
     BroadcastPrepare (Prepare ballot) a
   | -- | 'broadcastAccept'
     BroadcastAccept (Accept ballot value) a
-  | -- | 'isQuorum'
-    IsQuorum (Set node) (Bool -> a)
+  | -- | 'isProposerQuorum'
+    IsProposerQuorum (Set node) (Bool -> a)
   deriving (Functor)
 
 instance MonadProposer (Free (ProposerF node ballot value)) where
@@ -64,7 +64,7 @@ instance MonadProposer (Free (ProposerF node ballot value)) where
   newBallot = liftF $ NewBallot id
   broadcastPrepare b = liftF $ BroadcastPrepare b ()
   broadcastAccept msg = liftF $ BroadcastAccept msg ()
-  isQuorum s = liftF $ IsQuorum s id
+  isProposerQuorum s = liftF $ IsProposerQuorum s id
 
 instance (Monad m) => MonadProposer (FreeT (ProposerF node ballot value) m) where
   type ProposerAcceptorNode (FreeT (ProposerF node ballot value) m) = node
@@ -74,7 +74,7 @@ instance (Monad m) => MonadProposer (FreeT (ProposerF node ballot value) m) wher
   newBallot = liftF $ NewBallot id
   broadcastPrepare b = liftF $ BroadcastPrepare b ()
   broadcastAccept msg = liftF $ BroadcastAccept msg ()
-  isQuorum s = liftF $ IsQuorum s id
+  isProposerQuorum s = liftF $ IsProposerQuorum s id
 
 -- | A functor representing 'MonadAcceptorTransaction' actions.
 --

@@ -185,7 +185,7 @@ handlePromise state0 sender (promiseBallot, promiseVote) = case state0 of
     EQ -> do
       let votes = Map.insert sender promiseVote votes0
 
-      isQuorum' <- isQuorum (Map.keysSet votes)
+      isQuorum' <- isProposerQuorum (Map.keysSet votes)
       if isQuorum'
         then do
           let v = maybe value snd (maximumBy (fmap fst) Nothing votes)

@@ -115,7 +115,7 @@ runProposer thisNode = iterT $ \case
     acceptors' <- view configAcceptors
     tell $ Set.map (\t -> mkSome $ Accept thisNode t m) acceptors'
     next
-  F.IsQuorum s next ->
+  F.IsProposerQuorum s next ->
     next . ($ s) =<< view isQuorum
 
 runAcceptor ::

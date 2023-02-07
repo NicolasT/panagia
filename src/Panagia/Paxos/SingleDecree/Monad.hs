@@ -99,8 +99,8 @@ class (Monad m) => MonadProposer m where
   broadcastAccept = lift . broadcastAccept
 
   -- | Check whether a given set of nodes forms a quorum in the cluster.
-  isQuorum :: Set (ProposerAcceptorNode m) -> m Bool
-  default isQuorum ::
+  isProposerQuorum :: Set (ProposerAcceptorNode m) -> m Bool
+  default isProposerQuorum ::
     ( MonadProposer n,
       MonadTrans t,
       m ~ t n,
@@ -108,7 +108,7 @@ class (Monad m) => MonadProposer m where
     ) =>
     Set (ProposerAcceptorNode m) ->
     m Bool
-  isQuorum = lift . isQuorum
+  isProposerQuorum = lift . isProposerQuorum
 
 instance (MonadProposer m, Monoid w) => MonadProposer (AccumT w m) where
   type ProposerAcceptorNode (AccumT w m) = ProposerAcceptorNode m
