@@ -23,6 +23,7 @@ module Panagia.Paxos.SingleDecree.Free
   ( ProposerF (..),
     AcceptorF (..),
     TransactionF (..),
+    LearnerF (..),
   )
 where
 
@@ -35,6 +36,7 @@ import Panagia.Paxos.SingleDecree
     Accepted,
     MonadAcceptor (..),
     MonadAcceptorTransaction (..),
+    MonadLearner (..),
     MonadProposer (..),
     Prepare,
     Promise,
@@ -52,8 +54,8 @@ data ProposerF node ballot value a
     BroadcastPrepare (Prepare ballot) a
   | -- | 'broadcastAccept'
     BroadcastAccept (Accept ballot value) a
-  | -- | 'isQuorum'
-    IsQuorum (Set node) (Bool -> a)
+  | -- | 'isProposerQuorum'
+    IsProposerQuorum (Set node) (Bool -> a)
   deriving (Functor)
 
 instance MonadProposer (Free (ProposerF node ballot value)) where
@@ -64,7 +66,7 @@ instance MonadProposer (Free (ProposerF node ballot value)) where
   newBallot = liftF $ NewBallot id
   broadcastPrepare b = liftF $ BroadcastPrepare b ()
   broadcastAccept msg = liftF $ BroadcastAccept msg ()
-  isQuorum s = liftF $ IsQuorum s id
+  isProposerQuorum s = liftF $ IsProposerQuorum s id
 
 instance (Monad m) => MonadProposer (FreeT (ProposerF node ballot value) m) where
   type ProposerAcceptorNode (FreeT (ProposerF node ballot value) m) = node
@@ -74,7 +76,7 @@ instance (Monad m) => MonadProposer (FreeT (ProposerF node ballot value) m) wher
   newBallot = liftF $ NewBallot id
   broadcastPrepare b = liftF $ BroadcastPrepare b ()
   broadcastAccept msg = liftF $ BroadcastAccept msg ()
-  isQuorum s = liftF $ IsQuorum s id
+  isProposerQuorum s = liftF $ IsProposerQuorum s id
 
 -- | A functor representing 'MonadAcceptorTransaction' actions.
 --
@@ -142,3 +144,22 @@ instance (Monad m) => MonadAcceptor (FreeT (AcceptorF node ballot value) m) wher
   transactionally t = liftF $ Transactionally t id
   sendPromise n msg = liftF $ SendPromise n msg ()
   broadcastAccepted msg = liftF $ BroadcastAccepted msg ()
+
+-- | A functor representing 'MonadLearner' actions.
+--
+-- This can be used to construct (and evaluate) a @free@ monad, hence there
+-- are 'MonadLearner' instances for, e.g., 'FreeT' 'LearnerF'.
+data LearnerF node a
+  = -- | 'isLearnerQuorum'
+    IsLearnerQuorum (Set node) (Bool -> a)
+  deriving (Functor)
+
+instance MonadLearner (Free (LearnerF node)) where
+  type LearnerAcceptorNode (Free (LearnerF node)) = node
+
+  isLearnerQuorum s = liftF $ IsLearnerQuorum s id
+
+instance (Monad m) => MonadLearner (FreeT (LearnerF node) m) where
+  type LearnerAcceptorNode (FreeT (LearnerF node) m) = node
+
+  isLearnerQuorum s = liftF $ IsLearnerQuorum s id

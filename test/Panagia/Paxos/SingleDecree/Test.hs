@@ -5,7 +5,7 @@
 
 module Panagia.Paxos.SingleDecree.Test (tests) where
 
-import Control.Lens (at, use, (.=), (^.))
+import Control.Lens (at, use, (^.))
 import Control.Monad ((>=>))
 import Control.Monad.Catch (catch)
 import Data.Maybe (isJust)
@@ -26,11 +26,11 @@ import Panagia.Paxos.SingleDecree.Test.Monad
     handleMessage,
     handleMessages,
     initProposer,
+    resetLearner,
   )
 import qualified Panagia.Paxos.SingleDecree.Test.Monad as M
 import Panagia.Paxos.SingleDecree.Test.Types
   ( Message (Promise),
-    learners,
     messages,
     persistentState,
     proposerBallot,
@@ -81,9 +81,15 @@ consensusRetained = do
     handleMessages pickMessage
     consensusReached learner `shouldReturn` Just 1
 
+    resetLearner learner
+    consensusReached learner `shouldReturn` Nothing
+
     initProposer proposer2 2
     handleMessages pickMessage
     consensusReached learner `shouldReturn` Just 1
+
+    resetLearner learner
+    consensusReached learner `shouldReturn` Nothing
 
     initProposer proposer1 2
     handleMessages pickMessage
@@ -132,7 +138,7 @@ threeProposers pick = property $ do
     -- accepted value should be the one that was accepted earlier, not one
     -- of the 'new' values.
     n <- evalM $ do
-      learners . at learner .= Just mempty
+      resetLearner learner
       consensusReached learner
 
     n === Nothing

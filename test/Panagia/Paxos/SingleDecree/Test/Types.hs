@@ -1,8 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Panagia.Paxos.SingleDecree.Test.Types
@@ -25,7 +25,6 @@ module Panagia.Paxos.SingleDecree.Test.Types
     messages,
     persistentState,
     volatileState,
-    learnerMessages,
     Config (..),
     isQuorum,
     configAcceptors,
@@ -151,6 +150,8 @@ acceptorMaxBallot = lens _acceptorMaxBallot (\st b -> st {_acceptorMaxBallot = b
 acceptorVote :: Lens' (AcceptorPersistentState value) (Maybe (S.Vote Ballot value))
 acceptorVote = lens _acceptorVote (\st v -> st {_acceptorVote = v})
 
+type LearnerVolatileState value = S.LearnerState (Node Acceptor) Ballot value
+
 data NodeState value r where
   ProposerState ::
     { _proposerPersistentState :: ProposerPersistentState,
@@ -162,7 +163,7 @@ data NodeState value r where
     } ->
     NodeState value Acceptor
   LearnerState ::
-    { _learnerMessages :: Set (Message value Learner)
+    { _learnerVolatileState :: Either value (LearnerVolatileState value)
     } ->
     NodeState value Learner
 
@@ -170,13 +171,16 @@ deriving instance (Show value) => Show (NodeState value r)
 
 deriving instance (Ord value) => Eq (NodeState value r)
 
-class HasVolatileState s p where
+class HasVolatileState s p | s -> p where
   volatileState :: Lens' s p
 
 instance HasVolatileState (NodeState value Proposer) (ProposerVolatileState value) where
   volatileState = lens _proposerVolatileState (\st v -> st {_proposerVolatileState = v})
 
-class HasPersistentState s p where
+instance HasVolatileState (NodeState value Learner) (Either value (LearnerVolatileState value)) where
+  volatileState = lens _learnerVolatileState (\st v -> st {_learnerVolatileState = v})
+
+class HasPersistentState s p | s -> p where
   persistentState :: Lens' s p
 
 instance HasPersistentState (NodeState value Proposer) ProposerPersistentState where
@@ -184,15 +188,6 @@ instance HasPersistentState (NodeState value Proposer) ProposerPersistentState w
 
 instance HasPersistentState (NodeState value Acceptor) (AcceptorPersistentState value) where
   persistentState = lens _acceptorPersistentState (\st p -> st {_acceptorPersistentState = p})
-
-instance (Ord value) => Semigroup (NodeState value Learner) where
-  LearnerState a <> LearnerState b = LearnerState (a <> b)
-
-instance (Ord value) => Monoid (NodeState value Learner) where
-  mempty = LearnerState mempty
-
-learnerMessages :: Lens' (NodeState value Learner) (Set (Message value Learner))
-learnerMessages = lens _learnerMessages (\st m -> st {_learnerMessages = m})
 
 data State value = State
   { _proposers :: Map (Node Proposer) (NodeState value Proposer),
