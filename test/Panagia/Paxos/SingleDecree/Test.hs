@@ -1,24 +1,33 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Panagia.Paxos.SingleDecree.Test (tests) where
 
 import Control.Lens (at, use, (^.))
-import Control.Monad ((>=>))
+import Control.Monad (forM_, (>=>))
 import Control.Monad.Catch (catch)
+import Data.Foldable (foldrM)
+import qualified Data.Map as Map
 import Data.Maybe (isJust)
 import Data.Set (Set)
+import Data.String (fromString)
 import Hedgehog
   ( Property,
     PropertyT,
     assert,
     evalM,
     evalMaybeM,
+    failure,
+    forAll,
     property,
     (===),
   )
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 import Panagia.Paxos.SingleDecree (InvariantViolation (..))
 import Panagia.Paxos.SingleDecree.Test.Monad
   ( consensusReached,
@@ -152,6 +161,34 @@ threeProposers pick = property $ do
     c' <- evalMaybeM (consensusReached learner)
     c' === c
 
+fullyRandom :: Property
+fullyRandom = property $ do
+  acceptors <- forAll $ Gen.set (Range.linear 1 15) (genNode "a")
+  learners <- forAll $ Gen.set (Range.linear 1 15) (genNode "l")
+  proposers' <- forAll $ Gen.map (Range.linear 1 50) genProposer
+
+  loss <- forAll $ Gen.double $ Range.constant 0 0.20
+  duplication <- forAll $ Gen.double $ Range.constant 0 0.30
+
+  let pick = receiveRandom >=> duplicating duplication >=> dropping loss >=> annotating
+
+  let consensusEverywhere = foldrM (\l b -> (\c -> b && isJust c) <$> consensusReached l) True learners
+
+  evalTestT (simpleMajority' acceptors) acceptors learners $ do
+    eventually consensusEverywhere $ do
+      forM_ (Map.toList proposers') $ uncurry initProposer
+      handleMessages pick
+
+    cs <- foldrM (\l r -> (\c -> (l, c) : r) <$> consensusReached l) [] learners
+    case cs of
+      [] -> failure
+      ((_, c) : _) -> case c of
+        Nothing -> failure
+        Just _ -> forM_ cs $ \(_, c') -> c' === c
+  where
+    genNode p = fromString . (p <>) <$> Gen.string (Range.constant 1 10) Gen.alphaNum
+    genProposer = (,) <$> genNode "p" <*> Gen.int Range.linearBounded
+
 tests :: TestTree
 tests =
   testGroup
@@ -175,5 +212,9 @@ tests =
       testPropertyNamed
         "Three proposers, randomized, duplicating 20%, dropping 10%"
         "threeProposers (receiveRandom >=> duplicating 0.20 >=> dropping 0.10)"
-        (threeProposers (receiveRandom >=> duplicating 0.20 >=> dropping 0.10))
+        (threeProposers (receiveRandom >=> duplicating 0.20 >=> dropping 0.10)),
+      testPropertyNamed
+        "Fully randomized scenario"
+        "fullyRandom"
+        fullyRandom
     ]
