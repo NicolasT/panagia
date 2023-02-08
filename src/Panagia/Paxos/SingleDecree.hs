@@ -50,6 +50,16 @@ module Panagia.Paxos.SingleDecree
     handlePrepare,
     handleAccept,
 
+    -- * Running a Learner
+    MonadLearner (..),
+    LearnerState,
+    initLearnerState,
+
+    -- ** Event handlers
+
+    -- | The following functions can be used to handle incoming messages.
+    handleAccepted,
+
     -- * Types and type aliases
 
     -- ** Messages exchanged between nodes in the cluster
@@ -78,9 +88,12 @@ import Control.Monad (forM_, unless)
 import Control.Monad.Catch (MonadThrow)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Panagia.Paxos.SingleDecree.Monad
   ( MonadAcceptor (..),
     MonadAcceptorTransaction (..),
+    MonadLearner (..),
     MonadProposer (..),
     monadAcceptorLaws,
     monadProposerLaws,
@@ -101,7 +114,6 @@ import Panagia.Paxos.SingleDecree.Types
 -- Proposer {{{
 
 -- | Internal state of a Proposer node.
-
 --
 -- This is opaque to a program using this code, since the state is ephemeral
 -- and only to be used across Proposer message handler invocations.
@@ -292,5 +304,71 @@ handleAccept (ballot, value) = do
       else return Nothing
 
   forM_ maybeAccepted broadcastAccepted
+
+-- }}}
+
+-- Learner {{{
+
+-- | Internal state of a Learner node.
+--
+-- This is opaque to a program using thie code, since the state is ephemeral
+-- and only to be used across Learner message handler invocations.
+data LearnerState node ballot value = LearnerState
+  { -- | Maximum number of ballots for which to retain 'Accepted's.
+    learnerStateMaxBallots :: Word,
+    -- | 'Accepted' messages received, keyed by their ballot.
+    learnerStateAccepteds :: Map ballot (value, Set node)
+  }
+  deriving (Show, Eq)
+
+-- | Initialize a 'LearnerState'
+initLearnerState ::
+  (Ord ballot) =>
+  -- | Maximum number of ballots for which to retain 'Accepted's.
+  --
+  -- Increasing this number increases memory usage, but could speed up
+  -- consensus detection if messages arrive out of order.
+  Word ->
+  LearnerState node ballot value
+initLearnerState nb = LearnerState nb mempty
+
+-- | Handle an incoming 'Accepted' message.
+--
+-- This can throw an 'InvariantViolation' error.
+handleAccepted ::
+  (MonadLearner m, MonadThrow m, Ord (LearnerAcceptorNode m), Ord ballot, Eq value) =>
+  -- | Current state of the Learner.
+  LearnerState (LearnerAcceptorNode m) ballot value ->
+  -- | Node from which the message was received.
+  LearnerAcceptorNode m ->
+  -- | The 'Accepted' to handle.
+  Accepted ballot value ->
+  -- | Either a value on which consensus was reached, or the updated state
+  -- of the Learner, to be used in future 'handleAccepted' calls.
+  m (Either value (LearnerState (LearnerAcceptorNode m) ballot value))
+handleAccepted state0 node (ballot, value) = do
+  votes <- case Map.lookup ballot (learnerStateAccepteds state0) of
+    Nothing -> pure (Set.singleton node)
+    Just (value', nodes) -> do
+      if value' /= value
+        then invariantViolation "Value mismatch"
+        else pure (Set.insert node nodes)
+  isQuorum' <- isLearnerQuorum votes
+  return $
+    if isQuorum'
+      then Left value
+      else
+        Right $
+          state0
+            { learnerStateAccepteds =
+                curtail (learnerStateMaxBallots state0) $
+                  Map.insert ballot (value, votes) (learnerStateAccepteds state0)
+            }
+  where
+    curtail s m =
+      let size = fromIntegral (Map.size m)
+       in if size <= s
+            then m
+            else Map.drop (fromIntegral $ size - s) m
 
 -- }}}

@@ -23,6 +23,7 @@ module Panagia.Paxos.SingleDecree.Free
   ( ProposerF (..),
     AcceptorF (..),
     TransactionF (..),
+    LearnerF (..),
   )
 where
 
@@ -35,6 +36,7 @@ import Panagia.Paxos.SingleDecree
     Accepted,
     MonadAcceptor (..),
     MonadAcceptorTransaction (..),
+    MonadLearner (..),
     MonadProposer (..),
     Prepare,
     Promise,
@@ -142,3 +144,22 @@ instance (Monad m) => MonadAcceptor (FreeT (AcceptorF node ballot value) m) wher
   transactionally t = liftF $ Transactionally t id
   sendPromise n msg = liftF $ SendPromise n msg ()
   broadcastAccepted msg = liftF $ BroadcastAccepted msg ()
+
+-- | A functor representing 'MonadLearner' actions.
+--
+-- This can be used to construct (and evaluate) a @free@ monad, hence there
+-- are 'MonadLearner' instances for, e.g., 'FreeT' 'LearnerF'.
+data LearnerF node a
+  = -- | 'isLearnerQuorum'
+    IsLearnerQuorum (Set node) (Bool -> a)
+  deriving (Functor)
+
+instance MonadLearner (Free (LearnerF node)) where
+  type LearnerAcceptorNode (Free (LearnerF node)) = node
+
+  isLearnerQuorum s = liftF $ IsLearnerQuorum s id
+
+instance (Monad m) => MonadLearner (FreeT (LearnerF node) m) where
+  type LearnerAcceptorNode (FreeT (LearnerF node) m) = node
+
+  isLearnerQuorum s = liftF $ IsLearnerQuorum s id

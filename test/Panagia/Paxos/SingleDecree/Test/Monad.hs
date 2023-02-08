@@ -8,6 +8,7 @@
 module Panagia.Paxos.SingleDecree.Test.Monad
   ( evalTestT,
     initProposer,
+    resetLearner,
     handleMessages,
     handleMessage,
     consensusReached,
@@ -15,7 +16,25 @@ module Panagia.Paxos.SingleDecree.Test.Monad
   )
 where
 
-import Control.Lens (assign, at, ix, use, uses, view, zoom, (%=), (&), (.=), (.~), (<>=), (<~), (?=), (??))
+import Control.Lens
+  ( assign,
+    at,
+    ix,
+    preuse,
+    use,
+    uses,
+    view,
+    zoom,
+    (&),
+    (.=),
+    (.~),
+    (<>=),
+    (<~),
+    (?=),
+    (??),
+    _Just,
+    _Left,
+  )
 import Control.Monad.Catch (MonadCatch, MonadThrow, throwM)
 import Control.Monad.Catch.Pure (runCatch)
 import Control.Monad.Free (iterM)
@@ -55,7 +74,6 @@ import Panagia.Paxos.SingleDecree.Test.Types
     configAcceptors,
     configLearners,
     isQuorum,
-    learnerMessages,
     learners,
     messages,
     persistentState,
@@ -77,6 +95,9 @@ initProposer p v = do
   proposers . at p ?= ProposerState st' s
   messages <>= msgs
 
+resetLearner :: (MonadState (State value) m) => Node Learner -> m ()
+resetLearner node = learners . at node . _Just . volatileState .= Right (S.initLearnerState 2)
+
 handleMessage ::
   ( MonadCatch m,
     Ord value
@@ -90,7 +111,12 @@ handleMessage msg = do
       st <- use volatileState
       volatileState <~ zoom persistentState (runProposer t (S.handlePromise st f m))
     Accept _ t m -> zoom (acceptors . ix t . persistentState) $ runAcceptor t (S.handleAccept m)
-    Accepted _ t _ -> learners . ix t . learnerMessages %= Set.insert msg
+    Accepted f t m -> zoom (learners . ix t) $ do
+      st <- use volatileState
+      case st of
+        Left _ -> return () -- Reached consensus before, discard the message
+        Right st' -> do
+          volatileState <~ runLearner (S.handleAccepted st' f m)
   messages <>= msgs
 
 runProposer ::
@@ -148,6 +174,15 @@ runAcceptor thisNode = iterT $ \case
       Left err -> throwM err
       Right (a, st') -> put st' >> next a
 
+runLearner ::
+  ( MonadReader Config m
+  ) =>
+  FreeT (F.LearnerF (Node Acceptor)) m a ->
+  m a
+runLearner = iterT $ \case
+  F.IsLearnerQuorum s next ->
+    next . ($ s) =<< view isQuorum
+
 handleMessages ::
   (MonadCatch m, Ord value) =>
   (Set (Some (Message value)) -> m (Maybe (Some (Message value)), Set (Some (Message value)))) ->
@@ -180,23 +215,10 @@ evalTestT q a l act = runReaderT (evalStateT act state0) config
     state0 =
       mempty
         & acceptors .~ Map.fromSet (const (AcceptorState $ AcceptorPersistentState Nothing Nothing)) a
-        & learners .~ Map.fromSet (const mempty) l
+        & learners .~ Map.fromSet (const (LearnerState $ Right $ S.initLearnerState 2)) l
 
-consensusReached :: (MonadReader Config m, MonadState (State value) m, Ord value) => Node Learner -> m (Maybe value)
-consensusReached node = do
-  q <- view isQuorum
-  l <- use (learners . ix node . learnerMessages)
-  let accepteds = Set.filter isAccepted l
-      fn f v = \case
-        Nothing -> Just (v, Set.singleton f)
-        Just (_, fs) -> Just (v, Set.insert f fs)
-      byBallot = foldr (\(Accepted f _ (b, v)) m -> Map.alter (fn f v) b m) mempty accepteds
-      withQuorum = Map.filter (q . snd) byBallot
-  pure $ fst . snd <$> Map.lookupMin withQuorum
-  where
-    isAccepted :: Message value Learner -> Bool
-    isAccepted = \case
-      Accepted {} -> True
+consensusReached :: (MonadState (State value) m) => Node Learner -> m (Maybe value)
+consensusReached node = preuse (learners . at node . _Just . volatileState . _Left)
 
 tests :: TestTree
 tests =

@@ -19,6 +19,7 @@ module Panagia.Paxos.SingleDecree.Monad
     MonadAcceptor (..),
     MonadAcceptorTransaction (..),
     monadAcceptorLaws,
+    MonadLearner (..),
   )
 where
 
@@ -488,5 +489,74 @@ monadAcceptorLaws genBallot genValue =
             assert $ v' == Just (b, v)
     )
   ]
+
+-- }}}
+
+-- MonadLearner {{{
+
+-- | Monad providing the effects a Learner needs to perform its duties.
+class (Monad m) => MonadLearner m where
+  -- | Type of an acceptor node in the cluster.
+  type LearnerAcceptorNode m
+
+  -- | Check whether a given set of nodes forms a quorum in the cluster.
+  isLearnerQuorum :: Set (LearnerAcceptorNode m) -> m Bool
+  default isLearnerQuorum ::
+    ( MonadLearner n,
+      MonadTrans t,
+      m ~ t n,
+      LearnerAcceptorNode m ~ LearnerAcceptorNode n
+    ) =>
+    Set (LearnerAcceptorNode m) ->
+    m Bool
+  isLearnerQuorum = lift . isLearnerQuorum
+
+instance (MonadLearner m, Monoid w) => MonadLearner (AccumT w m) where
+  type LearnerAcceptorNode (AccumT w m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (ContT r m) where
+  type LearnerAcceptorNode (ContT r m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (ExceptT e m) where
+  type LearnerAcceptorNode (ExceptT e m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (IdentityT m) where
+  type LearnerAcceptorNode (IdentityT m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (MaybeT m) where
+  type LearnerAcceptorNode (MaybeT m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (CPS.RWST r w s m) where
+  type LearnerAcceptorNode (CPS.RWST r w s m) = LearnerAcceptorNode m
+
+instance (MonadLearner m, Monoid w) => MonadLearner (Lazy.RWST r w s m) where
+  type LearnerAcceptorNode (Lazy.RWST r w s m) = LearnerAcceptorNode m
+
+instance (MonadLearner m, Monoid w) => MonadLearner (Strict.RWST r w s m) where
+  type LearnerAcceptorNode (Strict.RWST r w s m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (ReaderT r m) where
+  type LearnerAcceptorNode (ReaderT r m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (SelectT r m) where
+  type LearnerAcceptorNode (SelectT r m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (Lazy.StateT s m) where
+  type LearnerAcceptorNode (Lazy.StateT s m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (Strict.StateT s m) where
+  type LearnerAcceptorNode (Strict.StateT s m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (CPS.WriterT w m) where
+  type LearnerAcceptorNode (CPS.WriterT w m) = LearnerAcceptorNode m
+
+instance (MonadLearner m, Monoid w) => MonadLearner (Lazy.WriterT w m) where
+  type LearnerAcceptorNode (Lazy.WriterT w m) = LearnerAcceptorNode m
+
+instance (MonadLearner m, Monoid w) => MonadLearner (Strict.WriterT w m) where
+  type LearnerAcceptorNode (Strict.WriterT w m) = LearnerAcceptorNode m
+
+instance (MonadLearner m) => MonadLearner (CatchT m) where
+  type LearnerAcceptorNode (CatchT m) = LearnerAcceptorNode m
 
 -- }}}
